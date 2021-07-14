@@ -1,0 +1,111 @@
+//LED PINS
+const byte numChars = 32;
+
+int red = 3, blue = 5, green = 6;
+int v_red = 0, v_blue = 0, v_green = 0, mode_select = 0, pattern = 0;
+
+//FORMAT NUNG DATA
+//  mode_select, pattern, red, green, blue
+/*
+  mode_select = kung rgb mode o running lights
+  pattern = kung nasa running lights, anong pattern? 5 possible siguro
+  red, green, blue = values ng analogwrite kung naka RGB mode
+*/
+
+char input_data[numChars];
+char temp_data[numChars];     // temporary array for use when parsing
+
+boolean newData = false;
+
+
+void setup() {
+  Serial.begin(9600);
+  for (int x = 3; x <= 6; x++){
+  	pinMode(x, OUTPUT);
+  }
+}
+
+void loop() {
+      receive_with_markers();
+      if (newData == true) {
+        strcpy(temp_data, input_data);
+        //temp copy baka madale yung data sa ere
+        parse_data();
+        showParsedData();
+        newData = false;
+    }
+      
+}
+
+
+void lighters(){ //pailaw nung mga led
+  analogWrite(red, v_red);
+  analogWrite(green, v_green);
+  analogWrite(blue, v_blue);
+}
+
+void rgb_killer(){
+  v_red = 0;
+  v_green = 0;
+  v_blue = 0;
+}
+  
+void receive_with_markers() { //unang re-receive ng data tapos hanap ng start marker at end marker para sure na buo yung data na mare-receive
+    static boolean recvInProgress = false;
+    static byte index = 0;
+    char startMarker = '<';
+    char endMarker = '>';
+    char temp;
+
+    while (Serial.available() > 0 && newData == false) { //naka receive stae arduino, may data na pumasok na nagsimula sa "<"
+        temp = Serial.read();
+
+        if (recvInProgress == true) {
+            if (temp != endMarker) {
+                input_data[index] = temp;
+                index++;
+                if (index >= numChars) {
+                    index = numChars - 1;
+                }
+            }
+            else { //kung may data sa ere pero di naman valid reset
+                input_data[index] = '\0'; // terminate the string
+                recvInProgress = false;
+                index = 0;
+                newData = true;
+            }
+        }
+
+        else if (temp == startMarker) { //kung may data sa ere tapos nag start sa "<", receive state muna arduino
+            recvInProgress = true;
+        }
+    }
+}
+
+void parse_data() {      // kalasin yung data by comma
+    char * strtokIndx; // this is used by strtok() as an index/counter 
+    strtokIndx = strtok(input_data, ","); // hila sa unang number bago mag comma, mode select data
+    mode_select = atoi(strtokIndx);     // convert to integer
+    strtokIndx = strtok(NULL, ","); // next number bago mag comma, pattern data
+    pattern = atoi(strtokIndx);     // convert to integer
+    strtokIndx = strtok(NULL, ","); // next number bago mag comma, red value
+    v_red = atoi(strtokIndx);     // convert to integer
+    strtokIndx = strtok(NULL, ","); // next number bago mag comma, green value
+    v_green = atoi(strtokIndx);     // convert to integer
+    strtokIndx = strtok(NULL, ","); // next number bago mag comma, blue value
+    v_blue = atoi(strtokIndx);     // convert to integer
+
+}
+
+void showParsedData() { //print data lang for testing purposes
+    Serial.print("Mode = ");
+    Serial.println(mode_select);
+    Serial.print("Pattern = ");
+    Serial.println(pattern);
+    Serial.print("red = ");
+    Serial.println(v_red);
+    Serial.print("green = ");
+    Serial.println(v_green);
+    Serial.print("blue = ");
+    Serial.println(v_blue);
+}
